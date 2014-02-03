@@ -1,0 +1,38 @@
+#!/usr/bin/env ruby
+
+require 'yaml'
+
+rubies = YAML.load_file('config.yml')['rubies']
+
+if ARGV.nil? || ARGV.length == 0 || ARGV[0] == "build"
+  # build
+elsif %w( help --help -h ).include? ARGV[0]
+  puts "Usage: ./run [help|list|build|packages|upload]"
+  exit
+elsif %w( list --list -l ).include? ARGV[0]
+  puts rubies
+  exit
+elsif %w( packages --packages -p ).include? ARGV[0]
+  system "find packages/ -type f | sort"
+  exit
+elsif %w( upload --upload -u ).include? ARGV[0]
+  system "rsync -av --rsh=ssh --progress packages/ winnie@rubies.shellycloud.com:/var/www/rubies/packages/"
+  exit
+else
+  $stderr.puts "Unknown command '#{ARGV*" "}'"
+  puts "Usage: ./run [help|list|build|packages|upload]"
+  exit 1
+end
+
+puts "### halting"
+system "vagrant halt || vagrant halt --force"
+
+%w(packages log build).each do |dir|
+  Dir.mkdir "#{dir}/" unless Dir.exist? "#{dir}/"
+end
+
+puts "#### starting"
+File.delete "log/build.log" if File.exist?("log/build.log")
+system "vagrant up 2>&1 | tee log/build.log"
+puts "#### stopping"
+system "vagrant halt 2>/dev/null || vagrant halt --force"
